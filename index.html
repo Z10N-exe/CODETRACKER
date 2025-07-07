@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Real-Time Code Tracker</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html, body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      background-color: #0f172a;
+    }
+    #editor {
+      height: 400px;
+      width: 100%;
+      border-radius: 0.5rem;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-slate-900 to-gray-900 text-gray-100">
+  <div class="max-w-6xl mx-auto py-10 px-4 space-y-10">
+    <!-- Header -->
+    <header class="text-center space-y-2">
+      <h1 class="text-5xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+        Real-Time Code Tracker
+      </h1>
+      <p class="text-gray-400 text-lg">Beautiful VS Code-like experience in your browser</p>
+    </header>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="bg-slate-800 rounded-xl shadow-lg p-6 flex flex-col items-center transition hover:bg-slate-700">
+        <div class="text-sm text-gray-400">Current Language</div>
+        <div id="current-language" class="text-3xl font-bold text-purple-400 mt-1">javascript</div>
+      </div>
+      <div class="bg-slate-800 rounded-xl shadow-lg p-6 flex flex-col items-center transition hover:bg-slate-700">
+        <div class="text-sm text-gray-400">Total Session Time</div>
+        <div id="session-time" class="text-3xl font-mono font-bold mt-1">00:00:00</div>
+      </div>
+      <div class="bg-slate-800 rounded-xl shadow-lg p-6 flex flex-col items-center transition hover:bg-slate-700">
+        <div class="text-sm text-gray-400">Reset Session</div>
+        <button id="reset-btn" class="mt-3 px-4 py-2 bg-pink-500 text-white rounded-lg hover:bg-pink-600 transition">
+          Reset
+        </button>
+      </div>
+    </div>
+
+    <!-- Language Selector -->
+    <section class="bg-slate-800 rounded-xl shadow-lg p-6 space-y-4">
+      <h2 class="text-xl font-semibold text-purple-300">Select Language</h2>
+      <div class="flex flex-wrap gap-3">
+        <button data-lang="javascript" class="lang-btn px-3 py-1 rounded-full bg-yellow-400 text-black hover:bg-yellow-300 transition shadow">
+          JavaScript
+        </button>
+        <button data-lang="python" class="lang-btn px-3 py-1 rounded-full bg-green-400 text-black hover:bg-green-300 transition shadow">
+          Python
+        </button>
+        <button data-lang="html" class="lang-btn px-3 py-1 rounded-full bg-pink-400 text-black hover:bg-pink-300 transition shadow">
+          HTML
+        </button>
+        <button data-lang="css" class="lang-btn px-3 py-1 rounded-full bg-blue-400 text-black hover:bg-blue-300 transition shadow">
+          CSS
+        </button>
+        <button data-lang="java" class="lang-btn px-3 py-1 rounded-full bg-red-400 text-black hover:bg-red-300 transition shadow">
+          Java
+        </button>
+      </div>
+    </section>
+
+    <!-- Monaco Editor -->
+    <section class="bg-slate-800 rounded-xl shadow-lg p-6">
+      <h2 class="text-xl font-semibold text-purple-300 mb-3">Code Editor</h2>
+      <div id="editor" class="border border-slate-700"></div>
+    </section>
+
+    <!-- Language Stats -->
+    <section class="bg-slate-800 rounded-xl shadow-lg p-6">
+      <h2 class="text-xl font-semibold text-purple-300 mb-3">Tracked Languages</h2>
+      <div id="language-stats" class="space-y-3">
+        <div class="text-gray-500 text-sm">No data yet. Start coding!</div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Monaco Editor loader -->
+  <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs/loader.js"></script>
+  <script>
+    let editor;
+    let monacoInstance;
+    const state = {
+      currentLanguage: 'javascript',
+      totalSeconds: 0,
+      languageTimes: {},
+      timer: null
+    };
+
+    // DOM elements
+    const currentLanguageEl = document.getElementById('current-language');
+    const sessionTimeEl = document.getElementById('session-time');
+    const languageStatsEl = document.getElementById('language-stats');
+    const resetBtn = document.getElementById('reset-btn');
+    const langButtons = document.querySelectorAll('.lang-btn');
+
+    function formatTime(seconds) {
+      const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+      const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+      const s = String(seconds % 60).padStart(2, '0');
+      return `${h}:${m}:${s}`;
+    }
+
+    function updateUI() {
+      sessionTimeEl.textContent = formatTime(state.totalSeconds);
+
+      if (Object.keys(state.languageTimes).length === 0) {
+        languageStatsEl.innerHTML = '<div class="text-gray-500 text-sm">No data yet. Start coding!</div>';
+        return;
+      }
+
+      let html = '';
+      for (const [lang, seconds] of Object.entries(state.languageTimes)) {
+        html += `
+          <div class="flex justify-between items-center bg-slate-700 px-3 py-2 rounded-lg">
+            <span class="font-medium text-purple-300">${lang}</span>
+            <span class="font-mono text-gray-300">${formatTime(seconds)}</span>
+          </div>
+        `;
+      }
+      languageStatsEl.innerHTML = html;
+    }
+
+    resetBtn.addEventListener('click', () => {
+      if (confirm('Reset all tracking data?')) {
+        state.totalSeconds = 0;
+        state.languageTimes = {};
+        updateUI();
+      }
+    });
+
+    function startTimer() {
+      if (state.timer) clearInterval(state.timer);
+      state.timer = setInterval(() => {
+        state.totalSeconds++;
+        if (!state.languageTimes[state.currentLanguage]) {
+          state.languageTimes[state.currentLanguage] = 0;
+        }
+        state.languageTimes[state.currentLanguage]++;
+        updateUI();
+      }, 1000);
+    }
+    startTimer();
+
+    require.config({ paths: { 'vs': 'https://cdn.jsdelivr.net/npm/monaco-editor@0.44.0/min/vs' }});
+    require(['vs/editor/editor.main'], function (monaco) {
+      monacoInstance = monaco;
+      editor = monaco.editor.create(document.getElementById('editor'), {
+        value: '',
+        language: state.currentLanguage,
+        theme: 'vs-dark',
+        automaticLayout: true
+      });
+
+      langButtons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const lang = btn.getAttribute('data-lang');
+          switchLanguage(lang);
+        });
+      });
+
+      function switchLanguage(lang) {
+        state.currentLanguage = lang;
+        currentLanguageEl.textContent = lang;
+        monaco.editor.setModelLanguage(editor.getModel(), lang);
+      }
+    });
+  </script>
+</body>
+</html>
